@@ -8,7 +8,7 @@
    adapted for an hot water fish tank by steam228
 
  * */
-
+#include <Timing.h>
 
 #include <PubSubClient.h>
 //ESP
@@ -34,7 +34,7 @@
 #define TOUCH 13
 #define aSensor A0
 
-
+Timing mytimer;
 
 //CONSTANTS
 const String HOSTNAME  = "fishtankLOU";
@@ -61,7 +61,7 @@ bool lastButtonState = false;
 
 float analogSensorValue = 0;
 long lastPub = 0;
-char SensorValue[50];
+
 
 
 void setup() {
@@ -82,6 +82,7 @@ void setup() {
   pinMode(RELAY_ONE,OUTPUT);
   pinMode(RELAY_TWO,OUTPUT);
   pinMode(TOUCH,INPUT_PULLUP);
+  mytimer.begin(0);
 }
 void turnOn1(){
   digitalWrite(RELAY_ONE,HIGH);
@@ -103,13 +104,21 @@ void turnOn2(){
 
 }
 
-
-
 void turnOff2(){
   digitalWrite(RELAY_TWO,LOW);
   client.publish(MQTT_LIGHT_TWO_STATE_TOPIC.c_str(),"OFF");
-
 }
+void publica(){
+
+   analogSensorValue = analogRead(aSensor);
+   analogSensorValue = map(analogSensorValue,0,1023,0,400);
+   String SensorValue = String(analogSensorValue,1);
+   Serial.println(SensorValue);
+   client.publish(MQTT_ANALOG_SENSOR_PUBLISH_TOPIC.c_str(), SensorValue.c_str());
+  
+ }
+
+
 //Chamada de recepção de mensagem
 void callback(char* topic, byte* payload, unsigned int length) {
   String payloadStr = "";
@@ -179,18 +188,14 @@ bool checkMqttConnection(){
 
 void loop() {
 
-   analogSensorValue = analogRead(aSensor);
-   analogSensorValue = map(analogSensorValue,0,1023,0,400);
-   String SensorValue = String(analogSensorValue,1);
+   
 
 
   if (WiFi.status() == WL_CONNECTED) {
     if (checkMqttConnection()){
-      if (millis()-lastPub >= 5000){
-        Serial.println(SensorValue);
-        client.publish(MQTT_ANALOG_SENSOR_PUBLISH_TOPIC.c_str(), SensorValue.c_str());
-        lastPub = millis();
-      }
+      if (mytimer.onTimeout(5000)){
+        publica();
+        } 
       bool realState = digitalRead(TOUCH);
       if(lastButtonState != realState){
         handleInterrupt();
